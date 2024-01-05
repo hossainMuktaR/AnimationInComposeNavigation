@@ -71,4 +71,8 @@ dependencies {
     //for navigation compose
     implementation("androidx.navigation:navigation-compose:2.7.6")
 
+    //for anchoredDraggable
+    implementation("androidx.compose.foundation:foundation:1.6.0-beta03")
+
+
 }

@@ -1,12 +1,14 @@
 package com.hossain.animationincomposenavigation.presentation
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.calculateTargetValue
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.rememberSplineBasedDecay
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.AnchoredDraggableState
+import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,42 +47,62 @@ import androidx.compose.ui.util.lerp
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     navController: NavController
 ) {
     Box {
-        var drawerState by remember {
-            mutableStateOf(DrawerState.Closed)
-        }
+//        var drawerState by remember {
+//            mutableStateOf(DrawerState.Closed)
+//        }
         val coroutineScope = rememberCoroutineScope()
-
-        val drawerWidth = with(LocalDensity.current) {
+        val density = LocalDensity.current
+        val drawerWidth = with(density) {
             DrawerWidth.toPx()
         }
-        val translationX = remember {
-            Animatable(0f)
+        // this translateX used for draggable modifier
+//        val translationX = remember {
+//            Animatable(0f)
+//        }
+//        translationX.updateBounds(0f, drawerWidth)
+//
+//        val draggableState = rememberDraggableState(onDelta = { dragAmount ->
+//            coroutineScope.launch {
+//                translationX.snapTo(translationX.value + dragAmount)
+//            }
+//        })
+        val anchors = DraggableAnchors{
+            DrawerState.Open at drawerWidth
+            DrawerState.Closed at 0f
         }
-        translationX.updateBounds(0f, drawerWidth)
-
-        val draggableState = rememberDraggableState(onDelta = { dragAmount ->
-            coroutineScope.launch {
-                translationX.snapTo(translationX.value + dragAmount)
-            }
-        })
-
+        val state = remember {
+            AnchoredDraggableState(
+                initialValue = DrawerState.Closed,
+                anchors = anchors,
+                positionalThreshold = {totalDistance: Float -> totalDistance * 0.5f },
+                animationSpec = spring(),
+                velocityThreshold = { with(density){ 80.dp.toPx()} },
+            )
+        }
         fun toggleDrawerState() {
             coroutineScope.launch {
-                if(drawerState == DrawerState.Open){
-                    translationX.animateTo(0f)
+                if(state.currentValue == DrawerState.Open) {
+                    state.animateTo(DrawerState.Closed)
                 }else {
-                    translationX.animateTo(drawerWidth)
+                    state.animateTo(DrawerState.Open)
                 }
-                drawerState = if (drawerState == DrawerState.Open) {
-                    DrawerState.Closed
-                } else {
-                    DrawerState.Open
-                }
+                // for draggable modifier
+//                if(drawerState == DrawerState.Open){
+////                    translationX.animateTo(0f)
+//                }else {
+////                    translationX.animateTo(drawerWidth)
+//                }
+//                drawerState = if (drawerState == DrawerState.Open) {
+//                    DrawerState.Closed
+//                } else {
+//                    DrawerState.Open
+//                }
             }
         }
 
@@ -97,43 +119,47 @@ fun HomeScreen(
             },
             modifier = Modifier
                 .graphicsLayer {
-                    this.translationX = translationX.value
-                    val scale = lerp(1f, 0.8f, translationX.value / drawerWidth)
+                    //for anchordraggable use state.requireoffset if use draggable then translateX.value
+                    this.translationX = state.requireOffset()
+                    val scale = lerp(1f, 0.8f, state.requireOffset()/ drawerWidth)
                     this.scaleX = scale
                     this.scaleY = scale
-                    val roundedCorners = lerp(0f, 32.dp.toPx(), translationX.value / drawerWidth)
+                    val roundedCorners = lerp(0f, 32.dp.toPx(), state.requireOffset() / drawerWidth)
                     this.shape = RoundedCornerShape(roundedCorners)
                     this.clip = true
                     this.shadowElevation = 32f
                 }
-                .draggable(draggableState, Orientation.Horizontal,
-                    onDragStopped = {velocity ->
-                        val decayX = decay.calculateTargetValue(
-                            translationX.value,
-                            velocity
-                        )
-                        coroutineScope.launch {
-                            val targetX = if(decayX > drawerWidth * 0.5){
-                                drawerWidth
-                            }else {
-                                0f
-                            }
-                            val canReachTargetWithDecay =
-                                (decayX > targetX && targetX == drawerWidth)
-                                        || ( decayX < targetX && targetX == 0f)
-                            if(canReachTargetWithDecay) {
-                                translationX.animateDecay(
-                                    initialVelocity = velocity,
-                                    animationSpec = decay
-                                )
-                            }else {
-                                translationX.animateTo(
-                                    targetX, initialVelocity = velocity
-                                )
-                            }
-                        }
-                    }
-                )
+                .anchoredDraggable(state, Orientation.Horizontal)
+                // This example is showing how to use draggable with custom logic on stop to snap to the edges
+                // You can also use `anchoredDraggable()` to set up anchors and not need to worry about more calculations.
+//                .draggable(draggableState, Orientation.Horizontal,
+//                    onDragStopped = { velocity ->
+//                        val decayX = decay.calculateTargetValue(
+//                            translationX.value,
+//                            velocity
+//                        )
+//                        coroutineScope.launch {
+//                            val targetX = if (decayX > drawerWidth * 0.5) {
+//                                drawerWidth
+//                            } else {
+//                                0f
+//                            }
+//                            val canReachTargetWithDecay =
+//                                (decayX > targetX && targetX == drawerWidth)
+//                                        || (decayX < targetX && targetX == 0f)
+//                            if (canReachTargetWithDecay) {
+//                                translationX.animateDecay(
+//                                    initialVelocity = velocity,
+//                                    animationSpec = decay
+//                                )
+//                            } else {
+//                                translationX.animateTo(
+//                                    targetX, initialVelocity = velocity
+//                                )
+//                            }
+//                        }
+//                    }
+//                )
         )
     }
 }
