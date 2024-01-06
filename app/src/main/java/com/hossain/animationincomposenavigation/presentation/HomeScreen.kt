@@ -1,9 +1,21 @@
 package com.hossain.animationincomposenavigation.presentation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.rememberSplineBasedDecay
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
@@ -14,6 +26,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -32,7 +45,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -72,7 +88,7 @@ fun HomeScreen(
 //                translationX.snapTo(translationX.value + dragAmount)
 //            }
 //        })
-        val anchors = DraggableAnchors{
+        val anchors = DraggableAnchors {
             DrawerState.Open at drawerWidth
             DrawerState.Closed at 0f
         }
@@ -80,16 +96,17 @@ fun HomeScreen(
             AnchoredDraggableState(
                 initialValue = DrawerState.Closed,
                 anchors = anchors,
-                positionalThreshold = {totalDistance: Float -> totalDistance * 0.5f },
+                positionalThreshold = { totalDistance: Float -> totalDistance * 0.5f },
                 animationSpec = spring(),
-                velocityThreshold = { with(density){ 80.dp.toPx()} },
+                velocityThreshold = { with(density) { 80.dp.toPx() } },
             )
         }
+
         fun toggleDrawerState() {
             coroutineScope.launch {
-                if(state.currentValue == DrawerState.Open) {
+                if (state.currentValue == DrawerState.Open) {
                     state.animateTo(DrawerState.Closed)
-                }else {
+                } else {
                     state.animateTo(DrawerState.Open)
                 }
                 // for draggable modifier
@@ -121,7 +138,7 @@ fun HomeScreen(
                 .graphicsLayer {
                     //for anchordraggable use state.requireoffset if use draggable then translateX.value
                     this.translationX = state.requireOffset()
-                    val scale = lerp(1f, 0.8f, state.requireOffset()/ drawerWidth)
+                    val scale = lerp(1f, 0.8f, state.requireOffset() / drawerWidth)
                     this.scaleX = scale
                     this.scaleY = scale
                     val roundedCorners = lerp(0f, 32.dp.toPx(), state.requireOffset() / drawerWidth)
@@ -130,8 +147,8 @@ fun HomeScreen(
                     this.shadowElevation = 32f
                 }
                 .anchoredDraggable(state, Orientation.Horizontal)
-                // This example is showing how to use draggable with custom logic on stop to snap to the edges
-                // You can also use `anchoredDraggable()` to set up anchors and not need to worry about more calculations.
+            // This example is showing how to use draggable with custom logic on stop to snap to the edges
+            // You can also use `anchoredDraggable()` to set up anchors and not need to worry about more calculations.
 //                .draggable(draggableState, Orientation.Horizontal,
 //                    onDragStopped = { velocity ->
 //                        val decayX = decay.calculateTargetValue(
@@ -164,14 +181,36 @@ fun HomeScreen(
     }
 }
 
+enum class FabState {
+    Idle, Explode
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ScreenContents(
     onDrawerClicked: () -> Unit,
     onButtonClicked: () -> Unit,
     onFloatingButtonClicked: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
+
+    var fabState by remember {
+        mutableStateOf(FabState.Idle)
+    }
+    val animDuration = 500
+    val fabSize by animateFloatAsState(
+        targetValue = if (fabState == FabState.Idle) {
+            80f
+        } else 4000f,
+        label = "fab size animation",
+        animationSpec = tween(
+            durationMillis = animDuration,
+            easing = LinearEasing
+        ),
+        finishedListener = {
+            onFloatingButtonClicked()
+        }
+    )
     Box(modifier) {
         Scaffold(
             topBar = {
@@ -193,13 +232,32 @@ private fun ScreenContents(
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(onClick = {
-                    onFloatingButtonClicked()
-                }) {
-                    Image(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "floating button"
+                val fabColor = MaterialTheme.colorScheme.primary
+                Box(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .wrapContentSize()
+                        .clickable {
+                            fabState = FabState.Explode
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(modifier = Modifier.padding(16.dp)) {
+                        drawCircle(fabColor, fabSize)
+                    }
+                    AnimatedVisibility(
+                        visible = fabState == FabState.Idle,
+                        enter = EnterTransition.None,
+                        exit = fadeOut(
+                            animationSpec = tween(
+                                animDuration,
+                                easing = LinearEasing
+                            )
+                        ),
                     )
+                    {
+                        Image(imageVector = Icons.Default.Add, contentDescription = "Fab")
+                    }
                 }
             },
         ) {
@@ -248,6 +306,7 @@ private fun HomeScreenDrawerContents(
 }
 
 private val DrawerWidth = 250.dp
+
 private enum class DrawerState {
     Open,
     Closed

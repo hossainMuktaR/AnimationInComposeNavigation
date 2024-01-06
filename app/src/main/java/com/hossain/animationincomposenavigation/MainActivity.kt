@@ -41,7 +41,9 @@ class MainActivity : ComponentActivity() {
                         enterTransition = { EnterTransition.None},
                         exitTransition = { ExitTransition.None}
                     ) {
-                        composable(route = "home_screen") {
+                        composable(
+                            route = "home_screen"
+                        ) {
                             HomeScreen(navController)
                         }
                         composable(
@@ -69,7 +71,9 @@ class MainActivity : ComponentActivity() {
                         ) {
                             DetailsScreen(navController)
                         }
-                        composable(route = "floatingA_screen") {
+                        composable(
+                            route = "floatingA_screen"
+                        ) {
                             FloatingActionScreen(navController)
                         }
                     }

@@ -32,7 +32,7 @@ fun DetailsScreen(
                     titleContentColor = MaterialTheme.colorScheme.primary,
                 ),
                 title = {
-                    Text("FloatingA Screen")
+                    Text("Details Screen")
                 },
                 navigationIcon = {
                     IconButton(onClick = {
@@ -48,7 +48,7 @@ fun DetailsScreen(
         },
         modifier = Modifier.fillMaxSize()
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
             Text(text = "Details Screen")
         }
     }
